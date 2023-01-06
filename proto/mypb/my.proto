@@ -9,10 +9,51 @@ message HelloRequest{
 message HelloResponse{
   string msg = 1;
 }
+
+message ByeRequest{
+  Words words = 1;
+}
+message ByeResponse{
+  string msg = 1;
+}
+message Words {
+  string content = 1;
+}
+
+message UpdateRequest{
+  string id = 1;
+  string msg = 2;
+}
+
+message UpdateResponse{
+  string msg = 1;
+}
 service HelloService{
   rpc Say(HelloRequest) returns (HelloResponse){
     option (google.api.http) = {
       post: "/hello/say"
+      body: "*"
+    };
+  }
+
+  // {name=*}表示这个字段填充到HelloRequest里的name字段
+  rpc SayGet(HelloRequest) returns (HelloResponse){
+    option (google.api.http) = {
+      get: "/hello/say/{name=*}"
+    };
+  }
+
+  // 这里body中的name表示HTTP的body里的数据填充到ByeRequest结构中的words成员
+  rpc SayBye(ByeRequest) returns (ByeResponse){
+    option (google.api.http) = {
+      post: "/hello/bye"
+      body: "words"
+    };
+  }
+
+  rpc UpdateHello(UpdateRequest) returns (UpdateResponse) {
+    option (google.api.http) = {
+      patch: "/hello/update"
       body: "*"
     };
   }

@@ -105,16 +105,3 @@ func getTLSConfig() *tls.Config {
 		NextProtos:   []string{http2.NextProtoTLS}, // HTTP2 TLS支持
 	}
 }
-
-//type HelloServiceImpl struct {
-//}
-//
-//func (m *HelloServiceImpl) Say(ctx context.Context, req *pb.HelloRequest) (*pb.HelloResponse, error) {
-//	resp := &pb.HelloResponse{}
-//	if req.Name == "wb" {
-//		resp.Msg = "调用成功"
-//	} else {
-//		resp.Msg = "调用失败"
-//	}
-//	return resp, nil
-//}
