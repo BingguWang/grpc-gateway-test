@@ -3,8 +3,8 @@ package main
 import (
 	"flag"
 	"github.com/BingguWang/grpc-gateway-test/cmd/service"
+	"github.com/BingguWang/grpc-gateway-test/cmd/utils"
 	pb "github.com/BingguWang/grpc-gateway-test/proto/mypb"
-	"google.golang.org/grpc/credentials"
 	"log"
 	"net"
 
@@ -27,16 +27,9 @@ func main() {
 		grpclog.Fatalf("监听失败：%v", err)
 	}
 	log.Printf("server listening at %v", listen.Addr())
-	creds, err := credentials.NewServerTLSFromFile(
-		"/home/wangbing/grpc-test/key/server.pem",
-		"/home/wangbing/grpc-test/key/server.key",
-	)
-	if err != nil {
-		grpclog.Fatalf("Failed to create server TLS credentials %v", err)
-	}
-	s := grpc.NewServer(
-		grpc.Creds(creds),
-	)
+	// 单向TLS认证
+	opts := utils.GetOneSideTlsServerOpts()
+	s := grpc.NewServer(opts...)
 
 	pb.RegisterHelloServiceServer(s, &service.HelloServiceImpl{})
 

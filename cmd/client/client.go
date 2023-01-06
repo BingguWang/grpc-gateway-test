@@ -4,9 +4,9 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"github.com/BingguWang/grpc-gateway-test/cmd/utils"
 
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/grpclog"
 
 	pb "github.com/BingguWang/grpc-gateway-test/proto/mypb"
@@ -18,11 +18,9 @@ var (
 
 func main() {
 	flag.Parsed()
-	creds, err := credentials.NewClientTLSFromFile( // 单向TLS认证
-		"/home/wangbing/grpc-test/key/server.pem",
-		"x.binggu.example.com",
-	)
-	clientConn, err := grpc.Dial(*addr, grpc.WithTransportCredentials(creds))
+	// 单向TLS认证
+	opts := utils.GetOneSideTlsClientOpts()
+	clientConn, err := grpc.Dial(*addr, opts...)
 	if err != nil {
 		grpclog.Fatalf("获取client conn 失败： %v", err)
 	}

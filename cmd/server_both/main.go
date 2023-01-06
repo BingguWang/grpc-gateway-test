@@ -5,11 +5,11 @@ import (
 	"crypto/tls"
 	"flag"
 	"github.com/BingguWang/grpc-gateway-test/cmd/service"
+	"github.com/BingguWang/grpc-gateway-test/cmd/utils"
 	pb "github.com/BingguWang/grpc-gateway-test/proto/mypb"
 	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
 	"golang.org/x/net/http2"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/grpclog"
 	"io/ioutil"
 	"log"
@@ -36,14 +36,8 @@ func main() {
 	}
 
 	// grpc tls server
-	creds, err := credentials.NewServerTLSFromFile(
-		"/home/wangbing/grpc-test/key/server.pem",
-		"/home/wangbing/grpc-test/key/server.key",
-	)
-	if err != nil {
-		grpclog.Fatalf("Failed to create server TLS credentials %v", err)
-	}
-	grpcServer := grpc.NewServer(grpc.Creds(creds))
+	opts := utils.GetOneSideTlsServerOpts()
+	grpcServer := grpc.NewServer(opts...)
 	// 注册grpc服务
 	pb.RegisterHelloServiceServer(grpcServer, &service.HelloServiceImpl{})
 
@@ -55,14 +49,7 @@ func main() {
 
 	// 因为gateway是要去调grpc server的
 	//所以这里gateway相对于grpc server来说是grpc的  客户端
-	dcreds, err := credentials.NewClientTLSFromFile(
-		"/home/wangbing/grpc-test/key/server.pem",
-		"x.binggu.example.com",
-	)
-	if err != nil {
-		grpclog.Fatalf("Failed to create client TLS credentials %v", err)
-	}
-	dopts := []grpc.DialOption{grpc.WithTransportCredentials(dcreds)}
+	dopts := utils.GetOneSideTlsClientOpts()
 	gwmux := runtime.NewServeMux()
 	if err := pb.RegisterHelloServiceHandlerFromEndpoint(ctx, gwmux, addr, dopts); err != nil {
 		grpclog.Fatalf("Failed to register gw server: %v\n", err)

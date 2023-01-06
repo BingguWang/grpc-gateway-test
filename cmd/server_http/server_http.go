@@ -3,13 +3,12 @@ package main
 import (
 	"context"
 	"flag"
+	"github.com/BingguWang/grpc-gateway-test/cmd/utils"
 	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
-	"google.golang.org/grpc/credentials"
 	"log"
 	"net"
 	"net/http"
 
-	"google.golang.org/grpc"
 	"google.golang.org/grpc/grpclog"
 
 	gw "github.com/BingguWang/grpc-gateway-test/proto/mypb"
@@ -30,21 +29,13 @@ func main() {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	creds, err := credentials.NewClientTLSFromFile( // 单向TLS认证
-		"/home/wangbing/grpc-test/key/server.pem",
-		"x.binggu.example.com",
-	)
-	if err != nil {
-		grpclog.Fatalf("获取client conn 失败： %v", err)
-	}
+	// 单向TLS认证，此时反向代理去调gRPC相当于是客户端
+	clientOpts := utils.GetOneSideTlsClientOpts()
+
 	mux := runtime.NewServeMux() // 获取一个多路复用器
-	opts := []grpc.DialOption{
-		//grpc.WithTransportCredentials(insecure.NewCredentials()), // 无需认证
-		grpc.WithTransportCredentials(creds),
-	}
 
 	// http转grpc, 反向代理去进行带有认证的gRPC调用
-	if err := gw.RegisterHelloServiceHandlerFromEndpoint(ctx, mux, addr, opts); err != nil {
+	if err := gw.RegisterHelloServiceHandlerFromEndpoint(ctx, mux, addr, clientOpts); err != nil {
 		grpclog.Fatalf("注册处理器错误： ", err)
 	}
 	log.Println("http server listen on 8080")
@@ -53,3 +44,8 @@ func main() {
 	}
 
 }
+
+/**
+测试http请求
+curl -k --cert /home/wangbing/grpc-test/ce-server/server.pem --key /home/wangbing/grpc-test/ce-server/server.key -d '{"name": "john"}' https://localhost:50055
+*/
