@@ -1,6 +1,6 @@
 syntax = "proto3";
-package proto;
-option go_package = "../proto/pb";
+package mypb;
+option go_package = "github.com/BingguWang/grpc-gateway-test/proto/mypb";
 import "google/api/annotations.proto";
 
 message HelloRequest{

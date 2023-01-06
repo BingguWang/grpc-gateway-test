@@ -2,26 +2,35 @@ package main
 
 import (
 	"context"
+	"flag"
 	"fmt"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/grpclog"
 
-	pb "github.com/wbing441282413/grpc-gateway-test/proto/pb"
+	pb "github.com/BingguWang/grpc-gateway-test/proto/mypb"
 )
 
-const addr = "127.0.0.1:50052"
+var (
+	addr = flag.String("addr", "localhost:50055", "the address to connect to")
+)
 
 func main() {
-
-	creds, err := credentials.NewClientTLSFromFile("../../keys/server.pem", "localhost")
-	clientConn, err := grpc.Dial(addr, grpc.WithTransportCredentials(creds))
+	flag.Parsed()
+	creds, err := credentials.NewClientTLSFromFile( // 单向TLS认证
+		"/home/wangbing/grpc-test/key/server.pem",
+		"x.binggu.example.com",
+	)
+	clientConn, err := grpc.Dial(*addr, grpc.WithTransportCredentials(creds))
 	if err != nil {
 		grpclog.Fatalf("获取client conn 失败： %v", err)
 	}
 
 	client := pb.NewHelloServiceClient(clientConn)
 	resp, err := client.Say(context.Background(), &pb.HelloRequest{Name: "wb"})
+	if err != nil {
+		panic(err)
+	}
 	fmt.Println(resp)
 }

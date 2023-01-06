@@ -3,66 +3,84 @@ package main
 import (
 	"context"
 	"crypto/tls"
-	"io/ioutil"
-	"net"
-	"net/http"
-	"strings"
-
-	"github.com/grpc-ecosystem/grpc-gateway/runtime"
+	"flag"
+	"github.com/BingguWang/grpc-gateway-test/cmd/service"
+	pb "github.com/BingguWang/grpc-gateway-test/proto/mypb"
+	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
 	"golang.org/x/net/http2"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/grpclog"
-
-	"github.com/wbing441282413/grpc-gateway-test/proto/pb"
+	"io/ioutil"
+	"log"
+	"net"
+	"net/http"
+	"strings"
 )
 
-const addr = "127.0.0.1:50052"
+var (
+	host = flag.String("host", "localhost", "listening host") // 服务的host
+	port = flag.String("port", "50055", "The server port")    // 服务的port
+)
+
+/**
+实现单个服务同时满足grpc调用和http调用
+*/
 
 func main() {
 
-	endpoint := "127.0.0.1:50052"
-	conn, err := net.Listen("tcp", endpoint)
+	addr := net.JoinHostPort(*host, *port)
+	conn, err := net.Listen("tcp", addr)
 	if err != nil {
 		grpclog.Fatalf("TCP Listen err:%v\n", err)
 	}
 
 	// grpc tls server
-	creds, err := credentials.NewServerTLSFromFile("../../keys/server.pem", "../../keys/server.key")
+	creds, err := credentials.NewServerTLSFromFile(
+		"/home/wangbing/grpc-test/key/server.pem",
+		"/home/wangbing/grpc-test/key/server.key",
+	)
 	if err != nil {
 		grpclog.Fatalf("Failed to create server TLS credentials %v", err)
 	}
 	grpcServer := grpc.NewServer(grpc.Creds(creds))
-	pb.RegisterHelloServiceServer(grpcServer, &HelloServiceImpl{})
+	// 注册grpc服务
+	pb.RegisterHelloServiceServer(grpcServer, &service.HelloServiceImpl{})
+
+	log.Println("-------开始配置网关，提供http服务")
 
 	// gw server
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	// 因为gateway是要去调grpc server的，所以这里gateway相对于grpc server来说是grpc的客户端
-	dcreds, err := credentials.NewClientTLSFromFile("../../keys/server.pem", "localhost")
+	// 因为gateway是要去调grpc server的
+	//所以这里gateway相对于grpc server来说是grpc的  客户端
+	dcreds, err := credentials.NewClientTLSFromFile(
+		"/home/wangbing/grpc-test/key/server.pem",
+		"x.binggu.example.com",
+	)
 	if err != nil {
 		grpclog.Fatalf("Failed to create client TLS credentials %v", err)
 	}
 	dopts := []grpc.DialOption{grpc.WithTransportCredentials(dcreds)}
 	gwmux := runtime.NewServeMux()
-	if err = pb.RegisterHelloServiceHandlerFromEndpoint(ctx, gwmux, endpoint, dopts); err != nil {
+	if err := pb.RegisterHelloServiceHandlerFromEndpoint(ctx, gwmux, addr, dopts); err != nil {
 		grpclog.Fatalf("Failed to register gw server: %v\n", err)
 	}
+	log.Println("-------注册网关成功，提供http服务")
 
 	// http服务
 	mux := http.NewServeMux()
 	mux.Handle("/", gwmux)
 
 	srv := &http.Server{
-		Addr:      endpoint,
+		Addr:      addr,
 		Handler:   grpcHandlerFunc(grpcServer, mux),
 		TLSConfig: getTLSConfig(),
 	}
+	grpclog.Infof("gRPC and https listen on: %s\n", addr)
 
-	grpclog.Infof("gRPC and https listen on: %s\n", endpoint)
-
-	if err = srv.Serve(tls.NewListener(conn, srv.TLSConfig)); err != nil {
+	if err := srv.Serve(tls.NewListener(conn, srv.TLSConfig)); err != nil {
 		grpclog.Fatal("ListenAndServe: ", err)
 	}
 
@@ -77,6 +95,7 @@ func grpcHandlerFunc(gs *grpc.Server, otherHandler http.Handler) http.Handler {
 		})
 	} // TODO 看下http包的使用
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// 根据请求头判断是否是grpc调用
 		if r.ProtoMajor == 2 && strings.Contains(r.Header.Get("Content-Type"), "application/grpc") { // 请求基于HTTP/2且请求的是grpc服务
 			gs.ServeHTTP(w, r)
 		} else { // 请求的是http服务
@@ -86,8 +105,8 @@ func grpcHandlerFunc(gs *grpc.Server, otherHandler http.Handler) http.Handler {
 }
 
 func getTLSConfig() *tls.Config {
-	cert, _ := ioutil.ReadFile("../../keys/server.pem")
-	key, _ := ioutil.ReadFile("../../keys/server.key")
+	cert, _ := ioutil.ReadFile("/home/wangbing/grpc-test/key/server.pem")
+	key, _ := ioutil.ReadFile("/home/wangbing/grpc-test/key/server.key")
 	var demoKeyPair *tls.Certificate
 	pair, err := tls.X509KeyPair(cert, key)
 	if err != nil {
@@ -100,15 +119,15 @@ func getTLSConfig() *tls.Config {
 	}
 }
 
-type HelloServiceImpl struct {
-}
-
-func (m *HelloServiceImpl) Say(ctx context.Context, req *pb.HelloRequest) (*pb.HelloResponse, error) {
-	resp := &pb.HelloResponse{}
-	if req.Name == "wb" {
-		resp.Msg = "调用成功"
-	} else {
-		resp.Msg = "调用失败"
-	}
-	return resp, nil
-}
+//type HelloServiceImpl struct {
+//}
+//
+//func (m *HelloServiceImpl) Say(ctx context.Context, req *pb.HelloRequest) (*pb.HelloResponse, error) {
+//	resp := &pb.HelloResponse{}
+//	if req.Name == "wb" {
+//		resp.Msg = "调用成功"
+//	} else {
+//		resp.Msg = "调用失败"
+//	}
+//	return resp, nil
+//}
